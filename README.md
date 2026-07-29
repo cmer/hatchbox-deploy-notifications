@@ -66,8 +66,10 @@ launchd and sends a test notification. If nothing pops up, allow notifications
 for **terminal-notifier** (or **Script Editor**) in System Settings →
 Notifications.
 
-Optional: `brew install terminal-notifier` — clicking a notification then opens
-Hatchbox. Bonus: subscribe to the same topic in the
+If Homebrew is installed, the installer also installs
+[terminal-notifier](https://github.com/julienXX/terminal-notifier)
+automatically (nicer notifications; clicking one opens Hatchbox). Without it,
+plain AppleScript notifications are used. Bonus: subscribe to the same topic in the
 [ntfy mobile app](https://ntfy.sh/app) to get the same notifications on your
 phone for free.
 

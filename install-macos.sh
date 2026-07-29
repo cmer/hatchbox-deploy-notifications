@@ -62,13 +62,27 @@ cat > "$CONFIG_FILE" <<JSON
 JSON
 chmod 600 "$CONFIG_FILE"
 
+# --- terminal-notifier (optional: better notifications + click-to-open) ------
+have_tn() { [ -x /opt/homebrew/bin/terminal-notifier ] || [ -x /usr/local/bin/terminal-notifier ]; }
+if ! have_tn && command -v brew >/dev/null 2>&1; then
+  echo "Installing terminal-notifier via Homebrew (enables click-to-open)..."
+  brew install --quiet terminal-notifier || echo "brew install failed — continuing without terminal-notifier."
+fi
+
 # --- launchd agent -----------------------------------------------------------
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 sed -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" -e "s|__HOME__|$HOME|g" \
   "$INSTALL_DIR/macos/$PLIST_LABEL.plist" > "$PLIST_DEST"
 
+# bootout is asynchronous — wait for the old agent to fully unload before
+# bootstrapping, and retry once since launchd can still return EIO briefly.
 launchctl bootout "gui/$(id -u)/$PLIST_LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  launchctl print "gui/$(id -u)/$PLIST_LABEL" >/dev/null 2>&1 || break
+  sleep 1
+done
+launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST" 2>/dev/null ||
+  { sleep 2; launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"; }
 launchctl kickstart -k "gui/$(id -u)/$PLIST_LABEL"
 
 # --- test notification -------------------------------------------------------
@@ -88,8 +102,10 @@ cat <<EOF
  - If you don't, allow notifications for "terminal-notifier" (or "Script
    Editor") in System Settings -> Notifications, then rerun:
      curl -d test https://ntfy.sh/$TOPIC
- - Optional: brew install terminal-notifier (clicking a notification then
-   opens Hatchbox).
  - Logs: ~/Library/Logs/hatchbox-notify.log
  - Update: re-run this installer. Uninstall: $INSTALL_DIR/uninstall-macos.sh
 EOF
+if ! have_tn; then
+  echo " - Recommended: brew install terminal-notifier (nicer notifications;"
+  echo "   clicking one opens Hatchbox). Install Homebrew first: https://brew.sh"
+fi
