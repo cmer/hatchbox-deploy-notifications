@@ -12,10 +12,16 @@
 #
 # Uses Hatchbox deploy variables when present ($DIR, $REVISION):
 # https://hatchbox.relationkit.io/articles/73-deploy-script-variables
+#
+# Clicking a notification opens the Hatchbox dashboard. Hatchbox doesn't tell
+# deploy hooks which app id they belong to, so to land on the app itself, copy
+# its URL from your browser and set HB_NOTIFY_URL before the `source` line:
+#
+#   HB_NOTIFY_URL=https://app.hatchbox.io/apps/13656-myapp source ~/.hatchbox-notify.sh success 2>/dev/null || true
 
 hb_notify() {
   local status="$1"
-  local topic app app_dir rev sha msg title priority tags
+  local topic app app_dir rev sha msg title priority tags click
 
   topic=$(cat "$HOME/.config/hatchbox-notify/topic" 2>/dev/null || true)
   [ -z "$topic" ] && return 0
@@ -24,6 +30,7 @@ hb_notify() {
   # from $PWD. HB_NOTIFY_APP overrides if you want a custom display name.
   app_dir="${DIR:-${PWD%%/releases/*}}"
   app="${HB_NOTIFY_APP:-$(basename "$app_dir")}"
+  click="${HB_NOTIFY_URL:-https://app.hatchbox.io/}"
 
   # The sha Hatchbox deployed: $REVISION when it's exported into the hook,
   # else the REVISION file every release directory ships with. Both beat
@@ -62,7 +69,7 @@ hb_notify() {
     -H "Title: $title" \
     -H "Priority: $priority" \
     -H "Tags: $tags" \
-    -H "Click: https://app.hatchbox.io/" \
+    -H "Click: $click" \
     -d "$sha — $msg" \
     "https://ntfy.sh/$topic" >/dev/null 2>&1 || true
 
