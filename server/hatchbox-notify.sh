@@ -15,7 +15,7 @@
 
 hb_notify() {
   local status="$1"
-  local topic app app_dir sha msg title priority tags
+  local topic app app_dir rev sha msg title priority tags
 
   topic=$(cat "$HOME/.config/hatchbox-notify/topic" 2>/dev/null || true)
   [ -z "$topic" ] && return 0
@@ -25,15 +25,19 @@ hb_notify() {
   app_dir="${DIR:-${PWD%%/releases/*}}"
   app="${HB_NOTIFY_APP:-$(basename "$app_dir")}"
 
-  # $REVISION is the sha Hatchbox actually deployed; trust it over whatever
-  # HEAD happens to be in the current directory (which may be a stale cache).
-  sha="${REVISION:-}"
-  [ -z "$sha" ] && sha=$(git rev-parse HEAD 2>/dev/null || true)
-  sha=$(printf '%s' "${sha:-unknown}" | cut -c1-7)
+  # The sha Hatchbox deployed: $REVISION when it's exported into the hook,
+  # else the REVISION file every release directory ships with. Both beat
+  # `git rev-parse HEAD`, which reads whatever the cwd happens to be.
+  rev="${REVISION:-}"
+  [ -z "$rev" ] && rev=$(cat "$PWD/REVISION" 2>/dev/null || true)
+  [ -z "$rev" ] && rev=$(git rev-parse HEAD 2>/dev/null || true)
+  sha=$(printf '%s' "${rev:-unknown}" | cut -c1-7)
 
   # Release dirs are exported without a .git, so read the subject from the
-  # repo cache Hatchbox keeps at <app>/repo; fall back to cwd just in case.
-  msg=$(git -C "$app_dir/repo" log -1 --format=%s ${REVISION:+"$REVISION"} 2>/dev/null || true)
+  # repo cache Hatchbox keeps at <app>/repo — but only for a known sha, since
+  # that cache's HEAD can be a commit that was never deployed here.
+  msg=""
+  [ -n "$rev" ] && msg=$(git -C "$app_dir/repo" log -1 --format=%s "$rev" 2>/dev/null || true)
   [ -z "$msg" ] && msg=$(git log -1 --format=%s 2>/dev/null || true)
   [ -z "$msg" ] && msg="(unknown commit)"
 
