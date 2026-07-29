@@ -5,19 +5,18 @@ succeeds or fails — with the app name, git sha, commit message, and deploy
 duration.
 
 > ✅ **myapp-production deployed**
-> `a1b2c3d` — Fix checkout race condition (74s)
+> `a1b2c3d` — Fix checkout race condition
 
 ## How it works
 
-Hatchbox has no built-in outbound notifications, but each app's deploy script
-is fully editable. This project uses that:
+Hatchbox runs a **post-deploy script** after every successful deployment and a
+**failed deploy script** after every failed one. This project plugs into both:
 
-- **Server**: a tiny hook (`~/.hatchbox-notify.sh`) is sourced from the top of
-  your deploy scripts. It sets a bash `EXIT` trap, so whether the deploy
-  succeeds or fails it publishes one message to a secret topic on
-  [ntfy.sh](https://ntfy.sh) (free pub/sub, no account). It never changes the
-  deploy's exit code, and a notification failure can never fail a deploy. The
-  app name is derived automatically from Hatchbox's `$DIR` variable.
+- **Server**: a tiny hook (`~/.hatchbox-notify.sh`) is sourced from those two
+  fields. It publishes one message (app name, git sha, commit subject) to a
+  secret topic on [ntfy.sh](https://ntfy.sh) (free pub/sub, no account). It
+  always exits 0, so a notification failure can never fail a deploy. The app
+  name is derived automatically from Hatchbox's `$DIR` variable.
 - **Mac**: a stdlib-only Ruby daemon (managed by `launchd`, survives reboots)
   streams the topic and posts native notifications. Failures get a ❌ and a
   distinct sound. If your Mac was asleep or offline, missed messages replay on
@@ -45,12 +44,20 @@ curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/
 
 ### 2. In Hatchbox
 
-For each app, open the app's **Deploy Script** setting in
-[Hatchbox](https://app.hatchbox.io) and add this line at the very **top**,
-above the existing commands:
+For each app, open the app's deploy script settings in
+[Hatchbox](https://app.hatchbox.io) and fill in these two fields, then click
+**Update Deploy Scripts**:
+
+**Post-deploy script** (runs after successful deploys):
 
 ```bash
-source ~/.hatchbox-notify.sh 2>/dev/null || true
+source ~/.hatchbox-notify.sh success 2>/dev/null || true
+```
+
+**Failed deploy script** (runs after failed deploys):
+
+```bash
+source ~/.hatchbox-notify.sh failure 2>/dev/null || true
 ```
 
 That's the only per-app change, and it's identical for every app.
@@ -91,9 +98,6 @@ phone for free.
   like a token. You can self-host ntfy or add auth later by changing `server`
   in `~/.config/hatchbox-notify/config.json` (Mac) and the URL in
   `~/.hatchbox-notify.sh` (server).
-- **Coverage caveat**: the trap fires for any failure *inside* the deploy
-  script. If Hatchbox fails before your script runs at all (e.g. the git fetch
-  itself fails), no notification is sent.
 - **Custom app name**: set `HB_NOTIFY_APP="pretty name"` before the `source`
   line to override the auto-detected one.
 - **Logs** (Mac): `~/Library/Logs/hatchbox-notify.log`

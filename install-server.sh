@@ -43,11 +43,16 @@ cat <<EOF
 
  1. In Hatchbox (https://app.hatchbox.io):
 
-    For EACH app on this server, open the app's Deploy Script setting
-    (your app -> Deployments -> Deploy Script) and add this line at the
-    very TOP, above the existing commands:
+    For EACH app on this server, open the app's deploy script settings
+    and fill in these two fields, then click "Update Deploy Scripts":
 
-      source ~/.hatchbox-notify.sh 2>/dev/null || true
+    Post-deploy script (runs after successful deploys):
+
+      source ~/.hatchbox-notify.sh success 2>/dev/null || true
+
+    Failed deploy script (runs after failed deploys):
+
+      source ~/.hatchbox-notify.sh failure 2>/dev/null || true
 
  2. On your Mac, install the notifier:
 
