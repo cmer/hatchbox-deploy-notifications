@@ -25,8 +25,17 @@ hb_notify() {
   app_dir="${DIR:-${PWD%%/releases/*}}"
   app="${HB_NOTIFY_APP:-$(basename "$app_dir")}"
 
-  sha=$(git rev-parse --short HEAD 2>/dev/null || echo "${REVISION:-unknown}" | cut -c1-7)
-  msg=$(git log -1 --format=%s 2>/dev/null || echo "(unknown commit)")
+  # $REVISION is the sha Hatchbox actually deployed; trust it over whatever
+  # HEAD happens to be in the current directory (which may be a stale cache).
+  sha="${REVISION:-}"
+  [ -z "$sha" ] && sha=$(git rev-parse HEAD 2>/dev/null || true)
+  sha=$(printf '%s' "${sha:-unknown}" | cut -c1-7)
+
+  # Release dirs are exported without a .git, so read the subject from the
+  # repo cache Hatchbox keeps at <app>/repo; fall back to cwd just in case.
+  msg=$(git -C "$app_dir/repo" log -1 --format=%s ${REVISION:+"$REVISION"} 2>/dev/null || true)
+  [ -z "$msg" ] && msg=$(git log -1 --format=%s 2>/dev/null || true)
+  [ -z "$msg" ] && msg="(unknown commit)"
 
   case "$status" in
     success)
