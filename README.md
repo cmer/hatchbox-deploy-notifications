@@ -124,9 +124,8 @@ with `~/.config/hatchbox-notify/topic` on the server.
   `~/.hatchbox-notify.sh` (server).
 - **Custom app name**: set `HB_NOTIFY_APP="pretty name"` before the `source`
   line to override the auto-detected one.
-- **Click target**: notifications open the Hatchbox dashboard. Hatchbox doesn't
-  expose an app id to deploy hooks, so to land on the app itself, copy its URL
-  from your browser and set `HB_NOTIFY_URL` before the `source` line:
-  `HB_NOTIFY_URL=https://app.hatchbox.io/apps/13656-myapp source ~/…`.
-  Requires `terminal-notifier`; the AppleScript fallback can't attach a URL.
+- **Click target**: notifications open the app's Hatchbox page, falling back to
+  the dashboard. Set `HB_NOTIFY_URL` before the `source` line to point somewhere
+  else. Requires `terminal-notifier`; the AppleScript fallback can't attach a
+  URL.
 - **Logs** (Mac): `~/Library/Logs/hatchbox-notify.log`

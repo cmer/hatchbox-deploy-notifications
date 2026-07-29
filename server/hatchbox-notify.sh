@@ -13,9 +13,9 @@
 # Uses Hatchbox deploy variables when present ($DIR, $REVISION):
 # https://hatchbox.relationkit.io/articles/73-deploy-script-variables
 #
-# Clicking a notification opens the Hatchbox dashboard. Hatchbox doesn't tell
-# deploy hooks which app id they belong to, so to land on the app itself, copy
-# its URL from your browser and set HB_NOTIFY_URL before the `source` line:
+# Clicking a notification opens the app's Hatchbox page when $HATCHBOX_APP_ID is
+# exported into the hook, else the dashboard. Set HB_NOTIFY_URL before the
+# `source` line to point somewhere else:
 #
 #   HB_NOTIFY_URL=https://app.hatchbox.io/apps/13656-myapp source ~/.hatchbox-notify.sh success 2>/dev/null || true
 
@@ -30,7 +30,17 @@ hb_notify() {
   # from $PWD. HB_NOTIFY_APP overrides if you want a custom display name.
   app_dir="${DIR:-${PWD%%/releases/*}}"
   app="${HB_NOTIFY_APP:-$(basename "$app_dir")}"
-  click="${HB_NOTIFY_URL:-https://app.hatchbox.io/}"
+  # Click target: an explicit HB_NOTIFY_URL wins, else the app's own page when
+  # Hatchbox exports $HATCHBOX_APP_ID (e.g. 13656-myapp, or just 13656 — the
+  # slug is decorative), else the dashboard.
+  click="${HB_NOTIFY_URL:-}"
+  if [ -z "$click" ]; then
+    if [ -n "${HATCHBOX_APP_ID:-}" ]; then
+      click="https://app.hatchbox.io/apps/${HATCHBOX_APP_ID}"
+    else
+      click="https://app.hatchbox.io/"
+    fi
+  fi
 
   # The sha Hatchbox deployed: $REVISION when it's exported into the hook,
   # else the REVISION file every release directory ships with. Both beat
