@@ -16,55 +16,56 @@ LIB="$HOME/.hatchbox-notify.sh"
 CONFIG_DIR="$HOME/.config/hatchbox-notify"
 TOPIC_FILE="$CONFIG_DIR/topic"
 
-echo "Installing hatchbox-deploy-notifications..."
+# Styling (disabled when stdout isn't a terminal)
+if [ -t 1 ]; then
+  B=$'\033[1m'; D=$'\033[2m'; C=$'\033[36m'; Y=$'\033[1;33m'; G=$'\033[32m'; R=$'\033[0m'
+else
+  B=""; D=""; C=""; Y=""; G=""; R=""
+fi
+
+echo "🚀 ${B}Installing hatchbox-deploy-notifications...${R}"
 curl -fsSL "$RAW/server/hatchbox-notify.sh" -o "$LIB"
-echo "Installed $LIB"
+echo "✅ Installed ${B}$LIB${R}"
 
 mkdir -p "$CONFIG_DIR"
 if [ -n "${HB_NOTIFY_TOPIC:-}" ]; then
   printf '%s\n' "$HB_NOTIFY_TOPIC" > "$TOPIC_FILE"
   chmod 600 "$TOPIC_FILE"
-  echo "Wrote provided secret key to $TOPIC_FILE"
+  echo "🔑 Saved provided secret key to ${B}$TOPIC_FILE${R}"
 elif [ -f "$TOPIC_FILE" ]; then
-  echo "Keeping existing secret key at $TOPIC_FILE"
+  echo "🔑 Keeping existing secret key at ${B}$TOPIC_FILE${R}"
 else
   openssl rand -hex 12 | sed 's/^/hatchbox-deploys-/' > "$TOPIC_FILE"
   chmod 600 "$TOPIC_FILE"
-  echo "Generated a new secret key at $TOPIC_FILE"
+  echo "🔑 Generated a new secret key at ${B}$TOPIC_FILE${R}"
 fi
 
 TOPIC=$(cat "$TOPIC_FILE")
 
 cat <<EOF
 
-===============================================================================
- Done! Two steps left:
-===============================================================================
+${G}${B}✅ Server installed!${R} ${B}Two steps left:${R}
 
- 1. In Hatchbox (https://app.hatchbox.io):
+${B}1️⃣  In Hatchbox${R} ${D}(https://app.hatchbox.io)${R}
 
-    For EACH app on this server, open the app's deploy script settings
-    and fill in these two fields, then click "Update Deploy Scripts":
+   For ${B}each app${R} on this server, open the app's deploy script settings,
+   fill in these two fields, then click ${B}"Update Deploy Scripts"${R}:
 
-    Post-deploy script (runs after successful deploys):
+   ${B}Post-deploy script${R} ${D}(runs after successful deploys)${R}
+     ${C}source ~/.hatchbox-notify.sh success 2>/dev/null || true${R}
 
-      source ~/.hatchbox-notify.sh success 2>/dev/null || true
+   ${B}Failed deploy script${R} ${D}(runs after failed deploys)${R}
+     ${C}source ~/.hatchbox-notify.sh failure 2>/dev/null || true${R}
 
-    Failed deploy script (runs after failed deploys):
+${B}2️⃣  On your Mac${R}, install the notifier:
 
-      source ~/.hatchbox-notify.sh failure 2>/dev/null || true
+     ${C}curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/main/install-macos.sh | bash${R}
 
- 2. On your Mac, install the notifier:
+   When it asks for your secret key, paste:
 
-      curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/main/install-macos.sh | bash
+     ${Y}$TOPIC${R}
 
-    When it asks for your secret key, paste:
+${D}➕ More servers? Install with the SAME key so all deploys reach your Mac:
+     curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/main/install-server.sh | HB_NOTIFY_TOPIC=$TOPIC bash${R}
 
-      $TOPIC
-
- More servers? Install with the SAME key so all deploys reach your Mac:
-
-      curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/main/install-server.sh | HB_NOTIFY_TOPIC=$TOPIC bash
-
-===============================================================================
 EOF
