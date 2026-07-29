@@ -45,13 +45,14 @@ if [ -z "$TOPIC" ] && [ -f "$CONFIG_FILE" ]; then
   [ -n "$TOPIC" ] && echo "Using existing secret key from $CONFIG_FILE"
 fi
 if [ -z "$TOPIC" ]; then
-  printf "Paste your secret key (printed by the server install): " > /dev/tty
+  printf "Paste your secret key (printed by the server install), then press Enter: " > /dev/tty
   read -r TOPIC < /dev/tty
 fi
 if [ -z "$TOPIC" ]; then
   echo "No secret key provided — aborting." >&2
   exit 1
 fi
+echo "Key accepted."
 
 mkdir -p "$CONFIG_DIR"
 cat > "$CONFIG_FILE" <<JSON
@@ -61,15 +62,17 @@ cat > "$CONFIG_FILE" <<JSON
 }
 JSON
 chmod 600 "$CONFIG_FILE"
+echo "Saved config to $CONFIG_FILE"
 
 # --- terminal-notifier (optional: better notifications + click-to-open) ------
 have_tn() { [ -x /opt/homebrew/bin/terminal-notifier ] || [ -x /usr/local/bin/terminal-notifier ]; }
 if ! have_tn && command -v brew >/dev/null 2>&1; then
-  echo "Installing terminal-notifier via Homebrew (enables click-to-open)..."
-  brew install --quiet terminal-notifier || echo "brew install failed — continuing without terminal-notifier."
+  echo "Installing terminal-notifier via Homebrew (enables click-to-open, may take a minute)..."
+  brew install terminal-notifier </dev/null || echo "brew install failed — continuing without terminal-notifier."
 fi
 
 # --- launchd agent -----------------------------------------------------------
+echo "Starting the notifier (launchd agent)..."
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 sed -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" -e "s|__HOME__|$HOME|g" \
   "$INSTALL_DIR/macos/$PLIST_LABEL.plist" > "$PLIST_DEST"
@@ -84,8 +87,10 @@ done
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST" 2>/dev/null ||
   { sleep 2; launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"; }
 launchctl kickstart -k "gui/$(id -u)/$PLIST_LABEL"
+echo "Notifier is running (label: $PLIST_LABEL)."
 
 # --- test notification -------------------------------------------------------
+echo "Sending a test notification..."
 sleep 3
 curl -fsS -m 10 \
   -H "Title: hatchbox-notify installed" \
