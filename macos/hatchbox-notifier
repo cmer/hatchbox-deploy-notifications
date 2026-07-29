@@ -1,0 +1,139 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# hatchbox-notifier — subscribes to an ntfy.sh topic and posts native macOS
+# notifications for Hatchbox deploy events. Runs forever; meant to be managed
+# by launchd (installed by install-macos.sh).
+#
+# Uses only the Ruby standard library so the macOS system Ruby is enough.
+
+require "net/http"
+require "json"
+require "uri"
+require "fileutils"
+
+CONFIG_DIR  = File.expand_path("~/.config/hatchbox-notify")
+CONFIG_FILE = File.join(CONFIG_DIR, "config.json")
+STATE_FILE  = File.join(CONFIG_DIR, "last_seen")
+
+unless File.exist?(CONFIG_FILE)
+  abort "hatchbox-notifier: missing #{CONFIG_FILE} — run install-macos.sh first"
+end
+
+config = JSON.parse(File.read(CONFIG_FILE))
+SERVER = (config["server"] || "https://ntfy.sh").chomp("/")
+TOPIC  = config.fetch("topic") { abort "hatchbox-notifier: no \"topic\" in #{CONFIG_FILE}" }
+
+TERMINAL_NOTIFIER = [
+  "/opt/homebrew/bin/terminal-notifier",
+  "/usr/local/bin/terminal-notifier"
+].find { |p| File.executable?(p) }
+
+# Tag names ntfy uses that we map to a leading emoji in the notification title.
+TAG_EMOJI = {
+  "white_check_mark" => "✅",
+  "x"                => "❌",
+  "warning"          => "⚠️",
+  "rotating_light"   => "\u{1F6A8}"
+}.freeze
+
+def log(msg)
+  puts "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S')}] #{msg}"
+  $stdout.flush
+end
+
+# State file holds "<unix time> <message id>" of the last handled message, so
+# a restart resumes from there without re-notifying (since= is inclusive).
+def last_seen
+  time, id = File.read(STATE_FILE).strip.split(" ", 2)
+  [Integer(time), id]
+rescue StandardError
+  [nil, nil]
+end
+
+def remember(time, id)
+  FileUtils.mkdir_p(CONFIG_DIR)
+  File.write(STATE_FILE, "#{time} #{id}")
+end
+
+def notify(title:, body:, url: nil, sound: "default")
+  if TERMINAL_NOTIFIER
+    cmd = [TERMINAL_NOTIFIER,
+           "-title", title,
+           "-message", body,
+           "-sound", sound,
+           "-group", "hatchbox-notifier"]
+    cmd += ["-open", url] if url
+    system(*cmd, out: File::NULL, err: File::NULL)
+  else
+    # osascript can't attach a click URL, but needs no dependencies.
+    escaped_body  = body.gsub("\\", "\\\\\\\\").gsub('"', '\\"')
+    escaped_title = title.gsub("\\", "\\\\\\\\").gsub('"', '\\"')
+    system("/usr/bin/osascript", "-e",
+           %(display notification "#{escaped_body}" with title "#{escaped_title}" sound name "#{sound}"),
+           out: File::NULL, err: File::NULL)
+  end
+end
+
+def handle(event)
+  return unless event["event"] == "message"
+
+  tags  = Array(event["tags"])
+  emoji = tags.map { |t| TAG_EMOJI[t] }.compact.first
+  title = [emoji, event["title"] || "Hatchbox"].compact.join(" ")
+  body  = event["message"].to_s
+  failed = tags.include?("x") || tags.include?("rotating_light")
+
+  log "notification: #{title} — #{body}"
+  notify(title: title, body: body, url: event["click"], sound: failed ? "Basso" : "Glass")
+  remember(event["time"], event["id"]) if event["time"]
+end
+
+seen_ids = []
+
+loop do
+  begin
+    since, last_id = last_seen
+    seen_ids << last_id if last_id && !seen_ids.include?(last_id)
+    query = since ? "?since=#{since}" : ""
+    uri = URI("#{SERVER}/#{TOPIC}/json#{query}")
+
+    log "connecting to #{uri.host}#{uri.path} (since=#{since || 'now'})"
+    Net::HTTP.start(uri.host, uri.port,
+                    use_ssl: uri.scheme == "https",
+                    open_timeout: 15,
+                    read_timeout: 120) do |http| # ntfy keepalives arrive every ~45s
+      request = Net::HTTP::Get.new(uri)
+      http.request(request) do |response|
+        raise "HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
+
+        buffer = +""
+        response.read_body do |chunk|
+          buffer << chunk
+          while (line = buffer.slice!(/\A[^\n]*\n/))
+            line.strip!
+            next if line.empty?
+
+            event = JSON.parse(line) rescue next
+            next if event["id"] && seen_ids.include?(event["id"])
+
+            seen_ids << event["id"] if event["id"]
+            seen_ids.shift if seen_ids.size > 100
+            begin
+              handle(event)
+            rescue StandardError => e
+              log "error handling event: #{e.class}: #{e.message}"
+            end
+          end
+        end
+      end
+    end
+    log "stream closed by server, reconnecting"
+  rescue Interrupt
+    log "interrupted, exiting"
+    exit 0
+  rescue StandardError => e
+    log "connection error: #{e.class}: #{e.message} — retrying in 10s"
+    sleep 10
+  end
+end
