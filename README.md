@@ -80,6 +80,30 @@ plain AppleScript notifications are used. Bonus: subscribe to the same topic in 
 [ntfy mobile app](https://ntfy.sh/app) to get the same notifications on your
 phone for free.
 
+## Troubleshooting
+
+**No notifications appear.** First check whether the daemon actually received
+the message:
+
+```sh
+tail ~/Library/Logs/hatchbox-notify.log
+curl -d test https://ntfy.sh/YOUR-KEY
+```
+
+If a `notification:` line shows up in the log, the daemon is fine and macOS is
+suppressing the notification. Two usual causes:
+
+- **Focus mode** silently swallows notifications — including deploy failures.
+  To let deploys through while staying in Focus: System Settings → Focus →
+  *your Focus* → Allowed Notifications → Apps → add **terminal-notifier**.
+- **Notification permission**: System Settings → Notifications →
+  **terminal-notifier** (or **Script Editor** if terminal-notifier isn't
+  installed) → allow notifications.
+
+If no `notification:` line appears, the Mac and the server are probably using
+different keys — compare `~/.config/hatchbox-notify/config.json` on the Mac
+with `~/.config/hatchbox-notify/topic` on the server.
+
 ## Updating
 
 - **Mac**: re-run the macOS installer (it pulls the latest version).
