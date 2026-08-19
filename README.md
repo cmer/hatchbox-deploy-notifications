@@ -67,7 +67,7 @@ server and run the hook with no argument. It prints those two lines back,
 along with your secret key:
 
 ```sh
-bash ~/.hatchbox-notify.sh
+~/.hatchbox-notify.sh
 ```
 
 ### 3. On your Mac

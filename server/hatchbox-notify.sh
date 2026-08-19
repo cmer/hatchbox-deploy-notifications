@@ -1,3 +1,4 @@
+#!/bin/bash
 # hatchbox-deploy-notifications — deploy notification hook (server side)
 # https://github.com/cmer/hatchbox-deploy-notifications
 #
@@ -13,7 +14,7 @@
 # Run it without an argument to print those two lines again, along with your
 # secret key — handy when you add a new app in Hatchbox:
 #
-#   bash ~/.hatchbox-notify.sh
+#   ~/.hatchbox-notify.sh
 #
 # Uses Hatchbox deploy variables when present ($DIR, $REVISION):
 # https://hatchbox.relationkit.io/articles/73-deploy-script-variables
@@ -95,7 +96,7 @@ hb_notify() {
 # and the install one-liners). Shown when the file is run or sourced without a
 # success/failure argument:
 #
-#   bash ~/.hatchbox-notify.sh
+#   ~/.hatchbox-notify.sh
 hb_notify_help() {
   local topic raw B D C Y G R
 
