@@ -65,7 +65,10 @@ ${B}2️⃣  On your Mac${R}, install the notifier:
 
      ${Y}$TOPIC${R}
 
-${D}➕ More servers? Install with the SAME key so all deploys reach your Mac:
+${D}💡 Forgot these later? Run the hook with no argument to print them again:
+     bash ~/.hatchbox-notify.sh
+
+➕ More servers? Install with the SAME key so all deploys reach your Mac:
      curl -fsSL https://raw.githubusercontent.com/cmer/hatchbox-deploy-notifications/main/install-server.sh | HB_NOTIFY_TOPIC=$TOPIC bash${R}
 
 EOF
