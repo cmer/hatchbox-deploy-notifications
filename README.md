@@ -62,6 +62,14 @@ source ~/.hatchbox-notify.sh failure 2>/dev/null || true
 
 That's the only per-app change, and it's identical for every app.
 
+**Adding an app later?** You don't need to come back here — SSH into the
+server and run the hook with no argument. It prints those two lines back,
+along with your secret key:
+
+```sh
+bash ~/.hatchbox-notify.sh
+```
+
 ### 3. On your Mac
 
 ```sh
